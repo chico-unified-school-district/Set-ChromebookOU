@@ -1,0 +1,16 @@
+SELECT 
+	STU.ID,
+	CONVERT(VARCHAR(10),[DRA].[DT],101) AS [Issued date],
+	[DRI].[BC] AS Barcode	
+FROM (SELECT [STU].* FROM STU WHERE DEL = 0)
+	STU RIGHT JOIN ((SELECT [DRA].* FROM DRA WHERE DEL = 0)
+	DRA LEFT JOIN (SELECT [DRI].* FROM DRI WHERE DEL = 0)
+	DRI ON [DRI].[RID] = [DRA].[RID] AND [DRI].[RIN] = [DRA].[RIN]) ON [STU].[ID] = [DRA].[ID]
+
+where RD is NUll
+	AND
+	DRA.RID = 1 
+	AND
+	DRI.DEL <> 1
+	AND
+	convert(date, DT) >= DATEADD (day, -21, convert(date,GETDATE()))
