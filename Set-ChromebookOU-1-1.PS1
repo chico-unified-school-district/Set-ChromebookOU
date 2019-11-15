@@ -96,5 +96,5 @@ do {
   Write-Verbose "Next run at $((Get-Date).AddSeconds($waitTime))."
   Start-Sleep -Seconds $waitTime
  }
-} until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
+} until ( $True -or $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
 # End Do Loop
