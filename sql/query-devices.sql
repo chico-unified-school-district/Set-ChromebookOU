@@ -13,4 +13,4 @@ where RD is NUll
 	AND
 	DRI.DEL <> 1
 	AND
-	convert(date, DT) >= DATEADD (day, -21, convert(date,GETDATE()))
+	convert(date, DT) >= DATEADD (day, -3, convert(date,GETDATE()))
