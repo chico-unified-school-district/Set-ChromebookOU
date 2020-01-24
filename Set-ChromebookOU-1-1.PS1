@@ -1,7 +1,7 @@
 #Requires -Version 5.0
 <#
 .SYNOPSIS
- Moves Student Chormebooks to propoer OU in GSuite.
+ Moves Chromebooks to propoer OU in GSuite.
 .DESCRIPTION
 .EXAMPLE
 .INPUTS
