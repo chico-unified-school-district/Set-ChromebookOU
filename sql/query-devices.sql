@@ -1,4 +1,7 @@
-SELECT  [DRI].[SR] AS [Serial Number],
+SELECT  
+[DRA].[ST] as [userType],
+
+[DRI].[SR] AS [Serial Number],
 
 [DRI].[BC] AS [BarCode],
 
@@ -20,6 +23,6 @@ AND
 
 DRI.DEL <> 1
 
-AND
+--AND
 --DRA.ST = 'T'
-convert(date, DRA.DT) >= DATEADD (day, -3, convert(date,GETDATE()))
+--convert(date, DRA.DT) >= DATEADD (day, -3, convert(date,GETDATE()))
