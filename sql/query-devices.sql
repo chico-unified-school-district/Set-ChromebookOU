@@ -23,6 +23,6 @@ AND
 
 DRI.DEL <> 1
 
---AND
---DRA.ST = 'T'
---convert(date, DRA.DT) >= DATEADD (day, -3, convert(date,GETDATE()))
+AND
+
+convert(date, DRA.DT) >= DATEADD (day, -3, convert(date,GETDATE()))
