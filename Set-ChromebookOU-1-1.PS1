@@ -78,7 +78,6 @@ do {
              Add-Log error (" for CB: {1}. Should be 'S' or 'T'" -f $barcode )
              Write-Error 'userType not detected' -TargetObject $userType
             }
-
             $ouGsuite = ($gamDevice.orgUnitPath | Out-String).Trim() # Fix orgUnitPath string output from gam.exe
             if ($targOU -ne $ouGsuite) {
                 # Check for non-matching orUnitPaths
