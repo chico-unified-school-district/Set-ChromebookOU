@@ -1,3 +1,3 @@
-# Set-ChromebookOU-1-1
+# Set-ChromebookOU
 
-Moves Student Chormebooks to propoer OU in GSuite.
+Moves Student Chromebooks to proper OU in GSuite.
