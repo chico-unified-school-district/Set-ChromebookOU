@@ -25,7 +25,7 @@ param (
     <# Specify a custom time for the process to end by.
  Defaults to 5:00pm. Loop interval is set to 15 minutes #>
     [Parameter(Mandatory = $False)]
-    [string]$StopTime = "5:00pm",
+    [string]$StopTime = '5:00pm',
     [SWITCH]$WhatIf
 )
 
@@ -47,12 +47,12 @@ do {
     $allCros = $null
     # $allCros = Import-Csv .\all-cros.csv
     $results = Invoke-SQLCommand -Server $SQLServer -Database $SQLDatabase -Credential $SQLCredential -Query $query
-    $crosFields = "annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status"
+    $crosFields = 'annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status'
     $deviceCountThreshold = 100 # 67 is the optimal number as determined by benchmarking.
     if ($results.count -gt $deviceCountThreshold) {
         # Compares result count to threshold value
         Write-Verbose "Aeries results ($($results.count)) are over threshold ($deviceCountThreshold)."
-        Write-Verbose "Querying all Devices in GSuite"
+        Write-Verbose 'Querying all Devices in GSuite'
         ($allCrosRaw = .$gam print cros fields $crosFields) *>$null
         $allCros = $allCrosRaw | ConvertFrom-Csv
     }
@@ -69,25 +69,30 @@ do {
             # Begin Device Check
             $id = $gamDevice.deviceId
             $userType = $dev.userType
+
             # Begin Set orgUnitPath and annotatedUser fields in GSuite ====================================
 
-            # Determine if (S)tudent or (T)eacher for OU placement. 
-            if ($userType -eq 'S') { $targOU = '/Chromebooks/1:1' }
+            # Determine if (S)tudent or (T)eacher for OU placement.
+            if ($userType -eq 'S') {
+                if ($dev.userGrade -lt 2) { $targOU = '/Chromebooks/Clever Badge' }
+                else { $targOU = '/Chromebooks/1:1' }
+                Write-Verbose ( 'Grade: {0}. OU: {1}' -f $dev.userGrade, $targOU )
+            }
             elseif ($userType -eq 'T') { $targOU = '/Chromebooks/1:1/Teacher 1:1' }
             else {
-             Add-Log error (" for CB: {1}. Should be 'S' or 'T'" -f $barcode )
-             Write-Error 'userType not detected' -TargetObject $userType
+                Add-Log error (" for CB: {1}. Should be 'S' or 'T'" -f $barcode )
+                Write-Error 'userType not detected' -TargetObject $userType
             }
             $ouGsuite = ($gamDevice.orgUnitPath | Out-String).Trim() # Fix orgUnitPath string output from gam.exe
             if ($targOU -ne $ouGsuite) {
                 # Check for non-matching orUnitPaths
                 Write-Verbose "OrgUnitPAth = '$ouGsuite' - Should = '$targOU'"
-                Add-Log update "$barcode,$targOU"
+                Add-Log update ( 'Barcode: {0},Grade: {1},OU: {2}' -f $barcode, $dev.userGrade , $targOU )
                 if (!$WhatIf) { (.$gam update cros $id ou $targOU) *>$null }
                 # End Set orgUnitPath and annotatedUser fields in GSuite ========================================
                 # Begin Set device status (action disable/reenable) =======================================
                 # Check if GSuite status for device is already correct
-                if ( $gamDevice.status -eq "ACTIVE" ) { continue }
+                if ( $gamDevice.status -eq 'ACTIVE' ) { continue }
                 Add-Log update "$barcode,ACTIVE"
                 if (!$WhatIf) { [void] (.$gam update cros $id action reenable) }
                 # End Set device status (action disable/reenable) =========================================
