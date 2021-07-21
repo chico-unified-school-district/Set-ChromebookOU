@@ -22,6 +22,7 @@ WHERE
 
 DRA.DD IS NULL
  AND DRA.RD IS NUll
- AND DRA.RID IN (1,3,4,6)
+ --AND DRA.RID IN (1,3,4,6)
+ AND DRA.RID IN (1)
  AND DRI.DEL <> 1
  AND convert(date, DRA.DT) >= DATEADD (day, -1, convert(date,GETDATE()))
