@@ -26,6 +26,7 @@ param (
  Defaults to 5:00pm. Loop interval is set to 15 minutes #>
  [Parameter(Mandatory = $False)]
  [string]$StopTime = '5:00pm',
+ [Alias('wi')]
  [SWITCH]$WhatIf
 )
 
@@ -49,14 +50,6 @@ do {
  $allCros = $null
  # $allCros = Import-Csv .\all-cros.csv
  $results = Invoke-SQLCommand -Server $SQLServer -Database $SQLDatabase -Credential $SQLCredential -Query $query
- $deviceCountThreshold = 100 # 67 is the optimal number as determined by benchmarking.
- if ($results.count -gt $deviceCountThreshold) {
-  # Compares result count to threshold value
-  Write-Verbose "Aeries results ($($results.count)) are over threshold ($deviceCountThreshold)."
-  Write-Verbose 'Querying all Devices in GSuite'
-  ($allCrosRaw = .$gam print cros fields $crosFields) *>$null
-  $allCros = $allCrosRaw | ConvertFrom-Csv
- }
  foreach ($dev in $results) {
   $barcode = $dev.barcode
   Write-Debug "Process $barcode ?"
@@ -90,7 +83,7 @@ do {
    }
 
    $ouGsuite = ($gamDevice.orgUnitPath | Out-String).Trim() # Fix orgUnitPath string output from gam.exe
-   
+
    if ($targOU -ne $ouGsuite) {
     # Check for non-matching orUnitPaths
     Write-Verbose "OrgUnitPAth = '$ouGsuite' - Should = '$targOU'"
@@ -117,6 +110,6 @@ do {
   Write-Verbose "Next run at $((Get-Date).AddSeconds($waitTime))."
   Start-Sleep -Seconds $waitTime
  }
- 
+
 } until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
 # End Do Loop
