@@ -31,12 +31,14 @@ param (
 )
 
 # Variable
-$ENV:GAM_DEVICE_MAX_RESULTS = 100
+# $ENV:GAM_DEVICE_MAX_RESULTS = 100
 $gam = '.\lib\gam-64\gam.exe'
 
 # Imported Functions
-. '.\lib\Add-Log.ps1'
-. '.\lib\Invoke-SQLCommand.ps1' # Useful function for querying SQL and returning results
+. .\lib\Add-Log.ps1
+. .\lib\Load-Module.ps1
+. .\lib\Clear-SessionData.ps1
+. .\lib\Show-TestRun.ps1
 
 # Functions
 
@@ -44,12 +46,15 @@ $query = Get-Content .\sql\query-devices.sql -Raw
 $crosFields = 'annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status'
 
 # Processing
+Show-TestRun
 Add-Log script "Begin Processing. Running Until $(Get-Date $StopTime)." -WhatIf:$WhatIf
 do {
+ Clear-SessionData
+ 'SQLServer' | Load-Module
  # Begin Do Loop
  $allCros = $null
  # $allCros = Import-Csv .\all-cros.csv
- $results = Invoke-SQLCommand -Server $SQLServer -Database $SQLDatabase -Credential $SQLCredential -Query $query
+ $results = Invoke-SqlCmd -Server $SQLServer -Database $SQLDatabase -Credential $SQLCredential -Query $query
  foreach ($dev in $results) {
   $barcode = $dev.barcode
   Write-Debug "Process $barcode ?"
@@ -65,7 +70,6 @@ do {
    $userType = $dev.userType
 
    # Begin Set orgUnitPath and annotatedUser fields in GSuite ====================================
-
    # Determine if (S)tudent or (T)eacher for OU placement.
    if ($userType -eq 'S') {
     if (($null -eq $dev.userGrade) -or ('' -eq $dev.userGrade)) {
