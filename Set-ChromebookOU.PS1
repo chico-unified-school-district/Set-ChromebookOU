@@ -76,7 +76,7 @@ do {
      Add-Log warning ('{0}, userGrade not detected. {1} OU unchanged' -f $barcode, $gamDevice.orgUnitPath)
      $targOU = $gamDevice.orgUnitPath
     }
-    elseif ($dev.userGrade -lt 2) { $targOU = '/Chromebooks/Clever Badge' }
+    elseif ($dev.userGrade -lt 2) { $targOU = '/Chromebooks/1:1' }
     else { $targOU = '/Chromebooks/1:1' }
     Write-Verbose ( 'Grade: {0}. OU: {1}' -f $dev.userGrade, $targOU )
    }
