@@ -37,8 +37,7 @@ $RECYCLE.BIN/
 .Trashes
 
 /notes.ps1
-/lib/gam-64/roots.pem
-/lib/gam-64/gam.exe
 /bin/gam.exe
 /bin/oauth2.txt
 /bin/roots.pem
+/jenkins.ps1

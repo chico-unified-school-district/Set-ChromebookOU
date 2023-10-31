@@ -54,7 +54,13 @@ do {
  # Begin Do Loop
  $allCros = $null
  # $allCros = Import-Csv .\all-cros.csv
- $results = Invoke-SqlCmd -Server $SQLServer -Database $SQLDatabase -Credential $SQLCredential -Query $query
+ $sqlParams = @{
+  Server                 = $SQLServer
+  Database               = $SQLDatabase
+  Credential             = $SQLCredential
+  TrustServerCertificate = $true
+ }
+ $results = Invoke-SqlCmd @sqlParams -Query $query
  foreach ($dev in $results) {
   $barcode = $dev.barcode
   Write-Debug "Process $barcode ?"
