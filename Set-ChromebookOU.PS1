@@ -32,7 +32,7 @@ param (
 
 # Variable
 # $ENV:GAM_DEVICE_MAX_RESULTS = 100
-$gam = '.\lib\gam-64\gam.exe'
+$gam = '.\bin\gam.exe'
 
 # Imported Functions
 . .\lib\Add-Log.ps1
