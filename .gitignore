@@ -41,3 +41,4 @@ $RECYCLE.BIN/
 /bin/oauth2.txt
 /bin/roots.pem
 /jenkins.ps1
+/params.ps1

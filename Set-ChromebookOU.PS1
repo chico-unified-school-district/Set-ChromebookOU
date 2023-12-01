@@ -47,7 +47,8 @@ $crosFields = 'annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status'
 
 # Processing
 Show-TestRun
-Add-Log script "Begin Processing. Running Until $(Get-Date $StopTime)." -WhatIf:$WhatIf
+$endTime = Get-Date $StopTime
+Add-Log script "Begin Processing. Running Until $endTime." -WhatIf:$WhatIf
 do {
  Clear-SessionData
  'SQLServer' | Load-Module
@@ -78,12 +79,10 @@ do {
    # Begin Set orgUnitPath and annotatedUser fields in GSuite ====================================
    # Determine if (S)tudent or (T)eacher for OU placement.
    if ($userType -eq 'S') {
-    if (($null -eq $dev.userGrade) -or ('' -eq $dev.userGrade)) {
-     Add-Log warning ('{0}, userGrade not detected. {1} OU unchanged' -f $barcode, $gamDevice.orgUnitPath)
-     $targOU = $gamDevice.orgUnitPath
-    }
-    elseif ($dev.userGrade -lt 2) { $targOU = '/Chromebooks/1:1' }
-    else { $targOU = '/Chromebooks/1:1' }
+    Write-Verbose ($gamDevice | Out-string)
+    $wifiOu = "/Chromebooks/1:1/Student - Unrestricted WiFi Access"
+    $targOu = if ($gamDevice.orgUnitPath -eq $wifiOu) { $wifiOu }
+    else { '/Chromebooks/1:1' }
     Write-Verbose ( 'Grade: {0}. OU: {1}' -f $dev.userGrade, $targOU )
    }
    elseif ($userType -eq 'T') { $targOU = '/Chromebooks/1:1/Teacher 1:1' }
@@ -121,5 +120,5 @@ do {
   Start-Sleep -Seconds $waitTime
  }
 
-} until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
+} until ( $WhatIf -or ((Get-Date) -ge $endTime) )
 # End Do Loop
