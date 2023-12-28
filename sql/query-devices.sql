@@ -1,9 +1,11 @@
 SELECT
+-- TOP 10
 --[DRA].[RID] as RID,
 
 [STU].[GR] as [userGrade],
 [DRA].[ST] as [userType],
 [DRI].[SR] AS [Serial Number],
+[DRI].[SR] AS [sn],
 [DRI].[BC] AS [BarCode],
 CONVERT(VARCHAR(10),[DRA].[DT],101) AS [Issued],
 CONVERT(VARCHAR(10),[DRA].[RD],101) AS [Returned]

@@ -1,11 +1,6 @@
-#Requires -Version 5.0
 <#
 .SYNOPSIS
  Moves Chromebooks to propoer OU in GSuite.
-.DESCRIPTION
-.EXAMPLE
-.INPUTS
-.OUTPUTS
 .NOTES
  Starting tag is CB201800012001
  Tag number should always be 14 characters in length
@@ -30,94 +25,94 @@ param (
  [SWITCH]$WhatIf
 )
 
-# Variable
-# $ENV:GAM_DEVICE_MAX_RESULTS = 100
+function Get-GDevice {
+ begin {
+  $crosFields = 'annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status'
+ }
+ process {
+  # Write-Verbose ( $MyInvocation.MyCommand.Name, $_ | Out-String )
+  $barcode = $_.barcode
+  ($gamDev = & $gam print cros query "asset_id: $barcode" fields $crosFields) *>$null
+  if (-not$gamDev) { return }
+  $formattedDev = $gamDev | ConvertFrom-Csv
+  $formattedDev.orgUnitPath = ($formattedDev.orgUnitPath | Out-String).Trim() # Cleanup ourUnitPath
+  $obj = [PSCustomObject]@{
+   sisData = $_ | ConvertTo-Csv | ConvertFrom-CSV
+   dev     = $formattedDev
+  }
+  Write-Verbose ('{0},sn:[{1}]' -f $MyInvocation.MyCommand.Name, $obj.sisData.sn)
+  $obj
+ }
+}
+
+function Add-TargOU {
+ begin {
+  $wifiOu = "/Chromebooks/1:1/Student - Unrestricted WiFi Access"
+  $stuOU = '/Chromebooks/1:1'
+  $staffOU = '/Chromebooks/1:1/Teacher 1:1'
+ }
+ process {
+  $msg = $MyInvocation.MyCommand.Name, $_.sisData.sn
+
+  # Write-Verbose ( $MyInvocation.MyCommand.Name, $_.sisData | Out-String )
+  # Write-Verbose ( $MyInvocation.MyCommand.Name, $_.dev | Out-String )
+
+  $userType = $_.sisData.userType
+
+  if ($userType.length -lt 1) { return (Write-Host ('{0},sn:[{1}],No userType detected') -f $msg) }
+
+  $ou = if ($userType -eq 'S') {
+   if ($_.dev.orgUnitPath -eq $wifiOu) { $wifiOu } # Keep in wifi OU
+   else { $stuOu }
+  }
+  elseif ($userType -eq 'T') { $staffOU }
+
+  if (-not$ou) { return (Write-Host ('{0},sn:[{1}],No targetOU detected') -f $msg) }
+
+  $_ | Add-Member -MemberType NoteProperty -Name ou -Value $ou
+  Write-Verbose ('{0},sn:[{1}],ou:[{2}]' -f $MyInvocation.MyCommand.Name, $_.sisData.sn, $_.ou)
+  $_
+ }
+}
+
+function Set-OU {
+ process {
+  if ($_.dev.orgUnitPath -eq $_.ou ) { return $_ }
+  $msg = $MyInvocation.MyCommand.Name, $_.sisData.userType, $_.sisData.sn, $_.ou
+  Write-Host ('{0},userType:[{1}],sn:[{2}],ou:[{3}]' -f $msg) -F Blue
+  if (-not$WhatIf) { & $gam update cros $_.dev.deviceId ou $_.ou }
+ }
+}
+
+function Set-DeviceActive {
+ process {
+  $msg = $MyInvocation.MyCommand.Name, $_.sisData.sn
+  if ( $_.dev.status -eq 'ACTIVE' ) { return }
+  Write-Host ('{0},sn:[{1}]' -f $msg) -F Blue
+  if (-not$WhatIf) { & $gam update cros $id action reenable }
+ }
+}
+
+# ============================= main =============================
 $gam = '.\bin\gam.exe'
 
 # Imported Functions
-. .\lib\Add-Log.ps1
 . .\lib\Load-Module.ps1
-. .\lib\Clear-SessionData.ps1
 . .\lib\Show-TestRun.ps1
 
-# Functions
+'SQLServer' | Load-Module
 
+$sqlParams = @{
+ Server                 = $SQLServer
+ Database               = $SQLDatabase
+ Credential             = $SQLCredential
+ TrustServerCertificate = $true
+}
 $query = Get-Content .\sql\query-devices.sql -Raw
-$crosFields = 'annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status'
 
-# Processing
-Show-TestRun
-$endTime = Get-Date $StopTime
-Add-Log script "Begin Processing. Running Until $endTime." -WhatIf:$WhatIf
 do {
- Clear-SessionData
- 'SQLServer' | Load-Module
- # Begin Do Loop
- $allCros = $null
- # $allCros = Import-Csv .\all-cros.csv
- $sqlParams = @{
-  Server                 = $SQLServer
-  Database               = $SQLDatabase
-  Credential             = $SQLCredential
-  TrustServerCertificate = $true
- }
- $results = Invoke-SqlCmd @sqlParams -Query $query
- foreach ($dev in $results) {
-  $barcode = $dev.barcode
-  Write-Debug "Process $barcode ?"
-  # Search allCROS for matching barcode(asset_id)
-  if ($allCros) { $gamDevice = $allCros.where( { $_.annotatedAssetId -eq $barcode }) }
-  else {
-   ($gamDeviceRaw = .$gam print cros query "asset_id: $barcode" fields $crosFields) *>$null
-   $gamDevice = $gamDeviceRaw | ConvertFrom-Csv
-  }
-  if ($gamDevice) {
-   # Begin Device Check
-   $id = $gamDevice.deviceId
-   $userType = $dev.userType
-
-   # Begin Set orgUnitPath and annotatedUser fields in GSuite ====================================
-   # Determine if (S)tudent or (T)eacher for OU placement.
-   if ($userType -eq 'S') {
-    Write-Verbose ($gamDevice | Out-string)
-    $wifiOu = "/Chromebooks/1:1/Student - Unrestricted WiFi Access"
-    $targOu = if ($gamDevice.orgUnitPath -eq $wifiOu) { $wifiOu }
-    else { '/Chromebooks/1:1' }
-    Write-Verbose ( 'Grade: {0}. OU: {1}' -f $dev.userGrade, $targOU )
-   }
-   elseif ($userType -eq 'T') { $targOU = '/Chromebooks/1:1/Teacher 1:1' }
-   else {
-    Add-Log error ( " for CB: {1}. Should be 'S' or 'T'" -f $barcode )
-    Write-Error 'userType not detected' -TargetObject $userType
-   }
-   $ouGsuite = ($gamDevice.orgUnitPath | Out-String).Trim() # Fix orgUnitPath string output from gam.exe
-
-   if ($targOU -ne $ouGsuite) {
-    # Check for non-matching orUnitPaths
-    Write-Verbose "OrgUnitPAth = '$ouGsuite' - Should = '$targOU'"
-    Add-Log update ( 'Barcode: {0},Grade: {1},OU: {2}' -f $barcode, $dev.userGrade , $targOU ) -WhatIf:$WhatIf
-    if (!$WhatIf) { (.$gam update cros $id ou $targOU) *>$null }
-    # End Set orgUnitPath and annotatedUser fields in GSuite ========================================
-    # Begin Set device status (action disable/reenable) =======================================
-    # Check if GSuite status for device is already correct
-    if ( $gamDevice.status -eq 'ACTIVE' ) { continue }
-    Add-Log update "$barcode,ACTIVE" -WhatIf:$WhatIf
-    if (!$WhatIf) { [void] (.$gam update cros $id action reenable) }
-    # End Set device status (action disable/reenable) =========================================
-   }
-   else { Write-Verbose "OrgUnitPath '$targOU' correct for $barcode" }
-  }
-  else {
-   Add-Log warning "$barcode,GSuite asset_id/deviceId not found."
-  }  # End Device Check
- }
-
- if (!$WhatIf) {
-  # $waitTime = 15*60 # Seconds
-  $waitTime = 5
-  Write-Verbose "Next run at $((Get-Date).AddSeconds($waitTime))."
-  Start-Sleep -Seconds $waitTime
- }
-
-} until ( $WhatIf -or ((Get-Date) -ge $endTime) )
-# End Do Loop
+ Show-TestRun
+ $devices = Invoke-SqlCmd @sqlParams -Query $query
+ $devices | Get-GDevice | Add-TargOU | Set-OU | Set-DeviceActive
+ if (-not$WhatIf) { Start-Sleep (60 * 15) } #60 seconds * 15 minutes
+} until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
