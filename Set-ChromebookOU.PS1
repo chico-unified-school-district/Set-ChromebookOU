@@ -25,23 +25,10 @@ param (
  [SWITCH]$WhatIf
 )
 
-function Get-GDevice {
- begin {
-  $crosFields = 'annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status'
- }
+function Complete-Processing {
  process {
-  # Write-Verbose ( $MyInvocation.MyCommand.Name, $_ | Out-String )
-  $barcode = $_.barcode
-  ($gamDev = & $gam print cros query "asset_id: $barcode" fields $crosFields) *>$null
-  if (-not$gamDev) { return }
-  $formattedDev = $gamDev | ConvertFrom-Csv
-  $formattedDev.orgUnitPath = ($formattedDev.orgUnitPath | Out-String).Trim() # Cleanup ourUnitPath
-  $obj = [PSCustomObject]@{
-   sisData = $_ | ConvertTo-Csv | ConvertFrom-CSV
-   dev     = $formattedDev
-  }
-  Write-Verbose ('{0},sn:[{1}]' -f $MyInvocation.MyCommand.Name, $obj.sisData.sn)
-  $obj
+  Write-Verbose ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $_.barcode)
+  # Read-Host Arrrrrrrggggggg
  }
 }
 
@@ -52,44 +39,79 @@ function Add-TargOU {
   $staffOU = '/Chromebooks/1:1/Teacher 1:1'
  }
  process {
-  $msg = $MyInvocation.MyCommand.Name, $_.sisData.sn
+  $msg = $MyInvocation.MyCommand.Name, $_.barCode
+  if ($_.userType.length -lt 1) { return (Write-Host ('{0},[{1}],No userType detected' -f $msg)) }
 
-  # Write-Verbose ( $MyInvocation.MyCommand.Name, $_.sisData | Out-String )
-  # Write-Verbose ( $MyInvocation.MyCommand.Name, $_.dev | Out-String )
-
-  $userType = $_.sisData.userType
-
-  if ($userType.length -lt 1) { return (Write-Host ('{0},sn:[{1}],No userType detected') -f $msg) }
-
-  $ou = if ($userType -eq 'S') {
-   if ($_.dev.orgUnitPath -eq $wifiOu) { $wifiOu } # Keep in wifi OU
+  $targOu = if ($_.userType -eq 'S') {
+   if ($_.devOu -eq $wifiOu) { $wifiOu } # Keep in wifi OU
    else { $stuOu }
   }
-  elseif ($userType -eq 'T') { $staffOU }
+  elseif ($_.userType -eq 'T') { $staffOU }
 
-  if (-not$ou) { return (Write-Host ('{0},sn:[{1}],No targetOU detected') -f $msg) }
+  if (-not$targOu) { return (Write-Host ('{0},[{1}],No targetOU detected') -f $msg) }
 
-  $_ | Add-Member -MemberType NoteProperty -Name ou -Value $ou
-  Write-Verbose ('{0},sn:[{1}],ou:[{2}]' -f $MyInvocation.MyCommand.Name, $_.sisData.sn, $_.ou)
+  $_.targOu = $targOu
+  Write-Verbose ('{0},[{1}],[{2}]' -f $MyInvocation.MyCommand.Name, $_.barCode, $_.targOu)
   $_
  }
 }
 
-function Set-OU {
+function Format-Obj {
  process {
-  if ($_.dev.orgUnitPath -eq $_.ou ) { return $_ }
-  $msg = $MyInvocation.MyCommand.Name, $_.sisData.userType, $_.sisData.sn, $_.ou
-  Write-Host ('{0},userType:[{1}],sn:[{2}],ou:[{3}]' -f $msg) -F Blue
-  if (-not$WhatIf) { & $gam update cros $_.dev.deviceId ou $_.ou }
+  [PSCustomObject]@{
+   barcode   = $_.barCode
+   userType  = $_.userType
+   sn        = $_.sn
+   targOu    = $null
+   devId     = $null
+   devOu     = $null
+   devuser   = $null
+   devStatus = $null
+  }
+ }
+}
+
+function Get-GDevice {
+ begin {
+  $crosFields = 'annotatedUser,annotatedAssetId,orgUnitPath,deviceId,status'
+ }
+ process {
+  # Write-Verbose ( $MyInvocation.MyCommand.Name, $_ | Out-String )
+  Write-Verbose "& $gam print cros query `"asset_id: $($_.barcode)`" fields $crosFields"
+  ($gamDev = & $gam print cros query "asset_id: $($_.barcode)" fields $crosFields) *>$null
+  if (-not$gamDev) { return (Write-Verbose Fuck) }
+  $devObj = $gamDev | ConvertFrom-Csv
+  Write-Verbose ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $_.barcode)
+  $_.devId = $devObj.deviceId
+  $_.devOu = $devObj.orgUnitPath.Trim()
+  $_.devUser = $devObj.annotatedUser
+  $_.devStatus = $devObj.status
+  $_
+ }
+}
+
+function Update-OU {
+ process {
+  Write-Verbose ( $MyInvocation.MyCommand.Name, $_ | Out-String )
+  if ($_.devOu -eq $_.targOu ) { return $_ }
+  $msg = $MyInvocation.MyCommand.Name, $_.userType, $_.barCode, $_.devOu, $_.targOu
+  Write-Host ('{0},[{1}],[{2}],[{3}] -> [{4}]' -f $msg) -F Blue
+  Write-Host "& $gam update cros $($_.devId) ou `"$($_.targOu)`"" -F Blue
+  # GAM and quotes can be tricky
+  if (-not$WhatIf) { (& $gam update cros $_.devId ou "$($_.targOu)") *>$null }
+  $_
  }
 }
 
 function Set-DeviceActive {
  process {
-  $msg = $MyInvocation.MyCommand.Name, $_.sisData.sn
-  if ( $_.dev.status -eq 'ACTIVE' ) { return }
-  Write-Host ('{0},sn:[{1}]' -f $msg) -F Blue
-  if (-not$WhatIf) { & $gam update cros $id action reenable }
+  $msg = $MyInvocation.MyCommand.Name, $_.barCode, $_.devId
+  Write-Verbose ('{0},[{1}],[{2}]' -f $msg)
+  if ( $_.devStatus -eq 'ACTIVE' ) { return $_ }
+  Write-Host ('{0},[{1}],[{2}]' -f $msg) -F Blue
+  Write-Host ("& $gam update cros $($_.devId) action reenable") -F Blue
+  if (-not$WhatIf) { (& $gam update cros $_.devId action reenable) *>$null }
+  $_
  }
 }
 
@@ -113,6 +135,8 @@ $query = Get-Content .\sql\query-devices.sql -Raw
 do {
  Show-TestRun
  $devices = Invoke-SqlCmd @sqlParams -Query $query
- $devices | Get-GDevice | Add-TargOU | Set-OU | Set-DeviceActive
+ $devices | Format-Obj | Get-GDevice | Add-TargOU |
+ Update-OU | Set-DeviceActive | Complete-Processing
+ 'Next run at {0}' -f ((Get-Date).AddMinutes(60 * 15))
  if (-not$WhatIf) { Start-Sleep (60 * 15) } #60 seconds * 15 minutes
 } until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
