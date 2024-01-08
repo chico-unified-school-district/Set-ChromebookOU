@@ -137,6 +137,6 @@ do {
  $devices = Invoke-SqlCmd @sqlParams -Query $query
  $devices | Format-Obj | Get-GDevice | Add-TargOU |
  Update-OU | Set-DeviceActive | Complete-Processing
- 'Next run at {0}' -f ((Get-Date).AddMinutes(60 * 15))
+ 'Next run at {0}' -f ((Get-Date).AddMinutes(15))
  if (-not$WhatIf) { Start-Sleep (60 * 15) } #60 seconds * 15 minutes
 } until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
