@@ -79,9 +79,9 @@ function Get-GDevice {
   # Write-Verbose ( $MyInvocation.MyCommand.Name, $_ | Out-String )
   Write-Verbose "& $gam print cros query `"asset_id: $($_.barcode)`" fields $crosFields"
   ($gamDev = & $gam print cros query "asset_id: $($_.barcode)" fields $crosFields) *>$null
-  if (-not$gamDev) { return (Write-Verbose Fuck) }
   $devObj = $gamDev | ConvertFrom-Csv
-  Write-Verbose ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $_.barcode)
+  $msg = $MyInvocation.MyCommand.Name, $_.barcode
+  if (-not$devObj) { return  (Write-Verbose ('{0},[{1}], Device not found' -f $msg)) }
   $_.devId = $devObj.deviceId
   $_.devOu = $devObj.orgUnitPath.Trim()
   $_.devUser = $devObj.annotatedUser
