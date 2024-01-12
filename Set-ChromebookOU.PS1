@@ -28,7 +28,6 @@ param (
 function Complete-Processing {
  process {
   Write-Verbose ('{0},[{1}]' -f $MyInvocation.MyCommand.Name, $_.barcode)
-  # Read-Host Arrrrrrrggggggg
  }
 }
 
@@ -48,7 +47,7 @@ function Add-TargOU {
   }
   elseif ($_.userType -eq 'T') { $staffOU }
 
-  if (-not$targOu) { return (Write-Host ('{0},[{1}],No targetOU detected') -f $msg) }
+  if (!$targOu) { return (Write-Host ('{0},[{1}],No targetOU detected') -f $msg) }
 
   $_.targOu = $targOu
   Write-Verbose ('{0},[{1}],[{2}]' -f $MyInvocation.MyCommand.Name, $_.barCode, $_.targOu)
@@ -81,7 +80,7 @@ function Get-GDevice {
   ($gamDev = & $gam print cros query "asset_id: $($_.barcode)" fields $crosFields) *>$null
   $devObj = $gamDev | ConvertFrom-Csv
   $msg = $MyInvocation.MyCommand.Name, $_.barcode
-  if (-not$devObj) { return  (Write-Verbose ('{0},[{1}], Device not found' -f $msg)) }
+  if (!$devObj) { return  (Write-Verbose ('{0},[{1}], Device not found' -f $msg)) }
   $_.devId = $devObj.deviceId
   $_.devOu = $devObj.orgUnitPath.Trim()
   $_.devUser = $devObj.annotatedUser
@@ -96,9 +95,9 @@ function Update-OU {
   if ($_.devOu -eq $_.targOu ) { return $_ }
   $msg = $MyInvocation.MyCommand.Name, $_.userType, $_.barCode, $_.devOu, $_.targOu
   Write-Host ('{0},[{1}],[{2}],[{3}] -> [{4}]' -f $msg) -F Blue
-  Write-Host "& $gam update cros $($_.devId) ou `"$($_.targOu)`"" -F Blue
+  Write-Verbose "& $gam update cros $($_.devId) ou `"$($_.targOu)`""
   # GAM and quotes can be tricky
-  if (-not$WhatIf) { (& $gam update cros $_.devId ou "$($_.targOu)") *>$null }
+  if (!$WhatIf) { (& $gam update cros $_.devId ou "$($_.targOu)") *>$null }
   $_
  }
 }
@@ -109,8 +108,8 @@ function Set-DeviceActive {
   Write-Verbose ('{0},[{1}],[{2}]' -f $msg)
   if ( $_.devStatus -eq 'ACTIVE' ) { return $_ }
   Write-Host ('{0},[{1}],[{2}]' -f $msg) -F Blue
-  Write-Host ("& $gam update cros $($_.devId) action reenable") -F Blue
-  if (-not$WhatIf) { (& $gam update cros $_.devId action reenable) *>$null }
+  Write-Verbose ("& $gam update cros $($_.devId) action reenable")
+  if (!$WhatIf) { (& $gam update cros $_.devId action reenable) *>$null }
   $_
  }
 }
@@ -132,11 +131,11 @@ $sqlParams = @{
 }
 $query = Get-Content .\sql\query-devices.sql -Raw
 
+'Run every 15 minutes'
 do {
  Show-TestRun
  $devices = Invoke-SqlCmd @sqlParams -Query $query
  $devices | Format-Obj | Get-GDevice | Add-TargOU |
  Update-OU | Set-DeviceActive | Complete-Processing
- 'Next run at {0}' -f ((Get-Date).AddMinutes(15))
- if (-not$WhatIf) { Start-Sleep (60 * 15) } #60 seconds * 15 minutes
+ if (!WhatIf) { Start-Sleep (60 * 15) } #60 seconds * 15 minutes
 } until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
