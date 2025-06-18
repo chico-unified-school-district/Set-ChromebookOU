@@ -115,27 +115,30 @@ function Set-DeviceActive {
 }
 
 # ============================= main =============================
+Import-Module -Name 'dbatools', 'CommonScriptFunctions'
+
+Show-BlockInfo Start
 $gam = '.\bin\gam.exe'
 
-# Imported Functions
-. .\lib\Load-Module.ps1
-. .\lib\Show-TestRun.ps1
-
-'SQLServer' | Load-Module
-
 $sqlParams = @{
- Server                 = $SQLServer
- Database               = $SQLDatabase
- Credential             = $SQLCredential
- TrustServerCertificate = $true
+ Server     = $SQLServer
+ Database   = $SQLDatabase
+ Credential = $SQLCredential
 }
+
 $query = Get-Content .\sql\query-devices.sql -Raw
 
 'Run every 15 minutes'
 do {
- Show-TestRun
- $devices = Invoke-SqlCmd @sqlParams -Query $query
- $devices | Format-Obj | Get-GDevice | Add-TargOU |
- Update-OU | Set-DeviceActive | Complete-Processing
+ $devices = New-SqlOperation @sqlParams -Query $query
+ $devices |
+  Format-Obj |
+   Get-GDevice |
+    Add-TargOU |
+     Update-OU |
+      Set-DeviceActive |
+       Complete-Processing
  if (!$WhatIf) { Start-Sleep (60 * 15) } #60 seconds * 15 minutes
 } until ( $WhatIf -or ((Get-Date) -ge (Get-Date $StopTime)) )
+
+Show-BlockInfo End
