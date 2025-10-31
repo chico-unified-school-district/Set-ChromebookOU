@@ -133,11 +133,7 @@ Show-BlockInfo main
 if ($WhatIf) { Show-TestRun }
 $gam = 'C:\GAM7\gam.exe'
 
-$sqlParams = @{
- Server     = $SQLServer
- Database   = $SQLDatabase
- Credential = $SQLCredential
-}
+$sqlParams = Connect-DbaInstance -SqlInstance $SQLServer -Database $SQLDatabase -SqlCredential $SQLCredential
 
 $query = Get-Content .\sql\query-devices.sql -Raw
 
