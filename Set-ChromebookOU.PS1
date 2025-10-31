@@ -33,7 +33,7 @@ function Complete-Processing {
 
 function Add-TargOU {
  begin {
-  $wifiOu = "/Chromebooks/1:1/Student - Unrestricted WiFi Access"
+  $wifiOu = '/Chromebooks/1:1/Student - Unrestricted WiFi Access'
   $stuOU = '/Chromebooks/1:1'
   $staffOU = '/Chromebooks/1:1/Teacher 1:1'
  }
@@ -77,7 +77,9 @@ function Get-GDevice {
  process {
   # Write-Verbose ( $MyInvocation.MyCommand.Name, $_ | Out-String )
   Write-Verbose "& $gam print cros query `"asset_id: $($_.barcode)`" fields $crosFields"
+  $ErrorActionPreference = 'Continue'
   ($gamDev = & $gam print cros query "asset_id: $($_.barcode)" fields $crosFields) *>$null
+  $ErrorActionPreference = 'Stop'
   $devObj = $gamDev | ConvertFrom-Csv
   $msg = $MyInvocation.MyCommand.Name, $_.barcode
   if (!$devObj) { return  (Write-Verbose ('{0},[{1}], Device not found' -f $msg)) }
@@ -97,7 +99,11 @@ function Update-OU {
   Write-Host ('{0},[{1}],[{2}],[{3}] -> [{4}]' -f $msg) -F Blue
   Write-Verbose "& $gam update cros $($_.devId) ou `"$($_.targOu)`""
   # GAM and quotes can be tricky
-  if (!$WhatIf) { (& $gam update cros $_.devId ou "$($_.targOu)") *>$null }
+  if (!$WhatIf) {
+   $ErrorActionPreference = 'Continue'
+   (& $gam update cros $_.devId ou "$($_.targOu)") *>$null
+   $ErrorActionPreference = 'Stop'
+  }
   $_
  }
 }
@@ -109,16 +115,23 @@ function Set-DeviceActive {
   if ( $_.devStatus -eq 'ACTIVE' ) { return $_ }
   Write-Host ('{0},[{1}],[{2}]' -f $msg) -F Blue
   Write-Verbose ("& $gam update cros $($_.devId) action reenable")
-  if (!$WhatIf) { (& $gam update cros $_.devId action reenable) *>$null }
+  if (!$WhatIf) {
+   $ErrorActionPreference = 'Continue'
+   (& $gam update cros $_.devId action reenable) *>$null
+   $ErrorActionPreference = 'Stop'
+  }
   $_
  }
 }
 
 # ============================= main =============================
-Import-Module -Name 'dbatools', 'CommonScriptFunctions'
+Import-Module -Name CommonScriptFunctions -Cmdlet Show-TestRun, Show-BlockInfo, New-SqlOperation
+Import-Module -Name dbatools -Cmdlet Invoke-DbaQuery, Set-DbatoolsConfig, Connect-DbaInstance, Disconnect-DbaInstance
 
-Show-BlockInfo Start
-$gam = '.\bin\gam.exe'
+Show-BlockInfo main
+
+if ($WhatIf) { Show-TestRun }
+$gam = 'C:\GAM7\gam.exe'
 
 $sqlParams = @{
  Server     = $SQLServer
